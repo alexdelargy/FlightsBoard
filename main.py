@@ -119,8 +119,12 @@ def getFlightsFR24(miles):
 
 df = getFlightsFR24(miles=20)
 
+
+
+st.set_page_config(page_title="Flights Overhead", layout="wide")
+
+st.title("Flights Overhead")
+
 for row in df.itertuples():
-    print(f"{row.Airline} {row.Type} from {row.Orig} to {row.Dest} at {row.Alt}ft {row.Distance} miles away")
+    st.write(f"{row.Airline} {row.Type} from {row.Orig} to {row.Dest} at {row.Alt}ft {row.Distance} miles away")
     time.sleep(2)
-
-
