@@ -6,7 +6,7 @@ import geocoder
 import math
 from typing import Tuple
 import time
-import streamlit as st
+
 
 with open('keys.json', 'r') as KeysFile:
     data = json.load(KeysFile)
@@ -110,7 +110,7 @@ def getFlightsFR24(miles):
             df.loc[len(df)] = new_case
         
         df['Distance'] = round(getDistance(df['Lat'], df['Lon']), 1)
-        return df.dropna(subset=['Airline', 'FlightNo', 'Orig']).sort_values('Distance')
+        return df.dropna(subset=['Airline', 'FlightNo', 'Orig']).sort_values('Distance').reset_index(drop=True)
         
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
@@ -120,11 +120,8 @@ def getFlightsFR24(miles):
 df = getFlightsFR24(miles=20)
 
 
+df = df.assign(Alt=df["Alt"].map("{:,} ft".format),
+              Distance=df["Distance"].map("{:.1f} mi".format))
 
-st.set_page_config(page_title="Flights Overhead", layout="wide")
 
-st.title("Flights Overhead")
 
-for row in df.itertuples():
-    st.write(f"{row.Airline} {row.Type} from {row.Orig} to {row.Dest} at {row.Alt}ft {row.Distance} miles away")
-    time.sleep(2)
