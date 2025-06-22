@@ -123,5 +123,5 @@ df = getFlightsFR24(miles=20)
 df = df.assign(Alt=df["Alt"].map("{:,} ft".format),
               Distance=df["Distance"].map("{:.1f} mi".format))
 
-
+df.to_csv('SampleData.csv')
 
