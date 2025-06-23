@@ -66,7 +66,6 @@ def getBounds(radius_miles: float) -> Tuple[float, float, float, float]:
 
     return ','.join([north, south, west, east])
 
-
 def getDistance(lat2, lon2):
     lat1, lon1 = getLocation()
     phi1 = lat1*np.pi/180           # φ, λ in radians
@@ -123,5 +122,4 @@ df = getFlightsFR24(miles=20)
 df = df.assign(Alt=df["Alt"].map("{:,} ft".format),
               Distance=df["Distance"].map("{:.1f} mi".format))
 
-df.to_csv('SampleData.csv')
 
