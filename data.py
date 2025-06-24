@@ -8,7 +8,11 @@ from typing import Tuple
 import time
 import streamlit as st
 
+with open('keys.json', 'r') as KeysFile:
+    data = json.load(KeysFile)
 
+
+FR24Key = data['FR24Key']
 EARTH_RADIUS = 6371e3
 
 def getLocation():
@@ -80,7 +84,7 @@ def getFlightsFR24(miles):
     params = {'bounds': getBounds(miles), 'altitude_ranges': '50-60000', 'categories': 'P,C,M,J,T'}
     headers = {'Accept': 'application/json',
     'Accept-Version': 'v1',
-    'Authorization': f'Bearer {st.secrets['FR24Key']}'
+    'Authorization': f'Bearer {FR24Key}'
     }
 
     try:
