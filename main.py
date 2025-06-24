@@ -1,122 +1,168 @@
-import requests
+from datetime import datetime
+from itertools import cycle
+import base64
+import imghdr
+
 import pandas as pd
-import json
-import numpy as np
-import geocoder
-import math
-from typing import Tuple
-import time
+import pytz
+import requests
+import main as st
+import pydeck as pdk
+from streamlit_autorefresh import st_autorefresh
+from streamlit_folium import st_folium
+import folium
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CONFIG
+# ─────────────────────────────────────────────────────────────────────────────
+EASTERN = pytz.timezone("US/Eastern")
+REFRESH_INTERVAL_MS = 0.1 * 60 * 1000  # 1 minute
+CSV_PATH = "SampleData.csv"  # replace with live API if desired
+ICON_URL = (
+    "https://raw.githubusercontent.com/visgl/deck.gl-data/master/website/icon-atlas/airplane.png"
+)
+LOGO_LOOKUP = "https://content.airhex.com/content/logos/airlines_%%_130_130_s.png"
+    # add more airline logos here…
 
-with open('keys.json', 'r') as KeysFile:
-    data = json.load(KeysFile)
+AIRPLANE_PNG = "https://raw.githubusercontent.com/visgl/deck.gl-data/master/website/icon-atlas/airplane.png"  # 128×128 transparent
 
-FR24Key = data['FR24Key']
-EARTH_RADIUS = 6371e3
+st.set_page_config(page_title="Flights Overhead", page_icon="✈️", layout="centered")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# DATA HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+@st.cache_data(ttl=60)
+def fetch_flights() -> pd.DataFrame:
+    """Return sample data (or swap in an API call)."""
+    df = pd.read_csv(CSV_PATH)
+    df["ETA"] = pd.to_datetime(df["ETA"], errors="coerce")
+    return df
 
-def getLocation():
-    lat, lon = geocoder.ip('me').latlng
-    return lat, lon
+# ─────────────────────────────────────────────────────────────────────────────
+# AUTO‑REFRESH
+count = st_autorefresh(interval=REFRESH_INTERVAL_MS, key="flight_cycle")
 
-def getBounds(radius_miles: float) -> Tuple[float, float, float, float]:
-    """
-    Return the (north_lat, south_lat, east_lon, west_lon) that bound
-    a circle of *radius_m* centred on (lat_deg, lon_deg).
+# SESSION STATE
+if "df" not in st.session_state:
+    st.session_state.df = fetch_flights()
+    st.session_state.cycle = cycle(st.session_state.df.itertuples())
+    st.session_state.index = 0
 
-    All angles are in decimal degrees.  Longitudes are normalized to [-180, 180].
-    """
-    lat_deg, lon_deg = getLocation()
-    EARTH_RADIUS_M = 6378137  # mean radius in metres (WGS-84)
+if st.session_state.index >= len(st.session_state.df):
+    st.session_state.df = fetch_flights()
+    st.session_state.cycle = cycle(st.session_state.df.itertuples())
+    st.session_state.index = 0
 
-    radius_meters = radius_miles * 1609.34 
-    # Convert centre point to radians
-    lat = math.radians(lat_deg)
-    lon = math.radians(lon_deg)
+# Only increment index when auto-refresh triggers (count > 0)
+if count > 0:
+    st.session_state.index = count
 
-    # Angular distance on the Earth’s surface
-    ang_dist = radius_meters / EARTH_RADIUS_M      # radians
+# Get the current flight
+flight = list(st.session_state.df.itertuples())[st.session_state.index % len(st.session_state.df)]
 
-    # Latitude bounds are simple great-circle shifts north/south
-    lat_north = lat + ang_dist
-    lat_south = lat - ang_dist
+# ─────────────────────────────────────────────────────────────────────────────
+# STYLE — LED MATRIX VIBES ✨
+# ─────────────────────────────────────────────────────────────────────────────
+STYLES = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
+body, .stApp {
+    background: #181825 !important;
+    zoom: 2;
+}
+.matrix-card {
+    background:#000;
+    border:4px solid #222;
+    border-radius:20px;
+    padding:2rem 2.5vw 2.5rem 2.5vw;
+    box-shadow:0 8px 24px rgba(0,0,0,0.6);
+    width:100vw;
+    max-width:100vw;
+    margin-left:calc(-50vw + 50%);
+    margin-right:calc(-50vw + 50%);
+}
+.matrix-font {
+    font-family:'DotGothic16', monospace;
+    line-height:1.05;
+    text-shadow:0 0 6px rgba(255,255,255,0.1),0 0 12px currentColor;
+}
+.route-row {
+    font-size:4rem;font-weight:bold;letter-spacing:0.12em;color:#fffa72;
+}
+.route-arrow {color:#ff3b28;}
+.airline-row {font-size:2.8rem;color:#38bdf8;}
+.flightno-row {font-size:2.8rem;color:#38bdf8;}
+.type-row {font-size:2.8rem;color:#a78bfa;}
+.metrics-row {font-size:2.8rem;display:flex;gap:2.5rem;margin-top:1.8rem;}
+.metrics-row span {text-shadow:0 0 6px rgba(255,255,255,0.1),0 0 12px currentColor;}
+.mi {color:#f472b6;}
+.ft {color:#38bdf8;}
+.eta-label,.eta-time,.eta-ampm {color:#fbbf24;}
+.logo-box {width:130px;height:130px;background:#111;border-radius:12px;display:flex;align-items:center;justify-content:center;}
+.logo-box img {width:100%;object-fit:contain;border-radius:10px;}
+</style>
+"""
 
-    # Longitude bounds shrink with latitude (meridians converge toward the poles)
-    # guard against cos(lat)=0 near the poles
-    if abs(math.cos(lat)) < 1e-12:
-        # At the poles every direction is “east/west”; set lon bounds to full range
-        lon_east = math.pi
-        lon_west = -math.pi
-    else:
-        delta_lon = math.asin(math.sin(ang_dist) / math.cos(lat))
-        lon_east = lon + delta_lon
-        lon_west = lon - delta_lon
+st.markdown(STYLES, unsafe_allow_html=True)
 
-    # Convert back to degrees and normalise longitudes to [-180, 180]
-    def wrap(deg: float) -> float:
-        """Wrap longitude from radians into the interval [-180, 180]°."""
-        deg = math.degrees(deg)
-        return (deg + 180) % 360 - 180
-
-    north = str(round(math.degrees(lat_north), 3))
-    south = str(round(math.degrees(lat_south), 3))
-    east  = str(round(wrap(lon_east), 3))
-    west  = str(round(wrap(lon_west), 3))
-
-    return ','.join([north, south, west, east])
-
-def getDistance(lat2, lon2):
-    lat1, lon1 = getLocation()
-    phi1 = lat1*np.pi/180           # φ, λ in radians
-    phi2 = lat2*np.pi/180
-    del_phi = (lat2 - lat1)*np.pi/180
-    del_lambda = (lon2 - lon1)*np.pi/180
-
-    a = np.sin(del_phi/2)*np.sin(del_phi/2) + \
-        np.cos(phi1)*np.cos(phi2)*np.sin(del_lambda/2)*np.sin(del_lambda/2)
-
-    c = 2*np.arctan2(np.sqrt(a), np.sqrt(1 - a))
-    d = EARTH_RADIUS*c;            # in meters
-    return d/1600                  # convert to miles
-
-def getFlightsFR24(miles):
-    url = "https://fr24api.flightradar24.com/api/live/flight-positions/full"
-    params = {'bounds': getBounds(miles), 'altitude_ranges': '50-60000', 'categories': 'P,C,M,J,T'}
-    headers = {'Accept': 'application/json',
-    'Accept-Version': 'v1',
-    'Authorization': f'Bearer {FR24Key}'
-    }
-
+# ─────────────────────────────────────────────────────────────────────────────
+# LOGO HANDLING
+# ─────────────────────────────────────────────────────────────────────────────
+logo_url = LOGO_LOOKUP.replace("%%", flight.FlightNo[:2])
+if not logo_url:
+    logo_html = "✈️"
+else:
     try:
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        data = response.json().get('data', [])
-        df = pd.DataFrame(columns=['Airline', 'FlightNo', 'Type', 'Orig', 'Dest', 'Alt', 'Lat', 'Lon', 'Track', 'Timestamp', 'ETA'])
-        for case in data:
-            new_case = {'Airline': case.get('painted_as', ''),
-                        'FlightNo': case.get('flight', ''),
-                        'Type': case.get('type', ''),
-                        'Orig': case.get('orig_iata', ''),
-                        'Dest': case.get('dest_iata', ''),
-                        'Alt': case.get('alt', ''),
-                        'Lat': case.get('lat', ''),
-                        'Lon': case.get('lon', ''),
-                        'Track': case.get('track', ''),
-                        'Timestamp': case.get('timestamp', ''),
-                        'ETA': case.get('eta', '')
-                        }
-            df.loc[len(df)] = new_case
-        
-        df['Distance'] = round(getDistance(df['Lat'], df['Lon']), 1)
-        return df.dropna(subset=['Airline', 'FlightNo', 'Orig']).sort_values('Distance').reset_index(drop=True)
-        
-    except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
-    except Exception as err:
-        print(f"An error occurred: {err}")
+        img_data = requests.get(logo_url, timeout=5).content
+        # Assume all airline logos are PNGs now
+        mime = "image/png"
+        b64 = base64.b64encode(img_data).decode()
+        logo_html = f'<img src="data:{mime};base64,{b64}">'  # Always PNG
+    except Exception:
+        logo_html = "✈️"
 
-df = getFlightsFR24(miles=20)
+# ─────────────────────────────────────────────────────────────────────────────
+# ETA FORMATTING
+# ─────────────────────────────────────────────────────────────────────────────
+if pd.notna(flight.ETA):
+    eta_eastern = (
+        flight.ETA.tz_localize("UTC").astimezone(EASTERN)
+        if flight.ETA.tzinfo is None
+        else flight.ETA.astimezone(EASTERN)
+    )
+    eta_hour = eta_eastern.strftime("%I:%M").lstrip("0")
+    eta_ampm = eta_eastern.strftime("%p")
+else:
+    eta_hour, eta_ampm = "--", "--"
 
-df.to_csv("SAMPLE2.csv", index=False)
+# ─────────────────────────────────────────────────────────────────────────────
+# RENDER CARD
+# ─────────────────────────────────────────────────────────────────────────────
+card_html = f"""
+<div style='display:flex; justify-content:center; width:100%;'>
+  <div class='matrix-card matrix-font' style='width:900px; max-width:95vw; margin:0 auto;'>
+     <div style='display:flex;gap:2rem;align-items:center;'>
+        <div class='logo-box'>{logo_html}</div>
+        <div style='flex:1;'>
+            <div class='route-row matrix-font'>
+               <span>{flight.Orig}</span>
+               <span class='route-arrow'>&#9654;</span>
+               <span>{flight.Dest}</span>
+            </div>
+            <div style='display:flex;gap:1rem;margin-top:1rem;'>
+                <span class='flightno-row'>{flight.FlightNo}</span>
+                <span class='type-row'>{flight.Type}</span>
+            </div>
+        </div>
+     </div>
+     <div class='metrics-row matrix-font'>
+         <span class='ft'>{int(flight.Alt):,}ft</span>
+         <span class='eta-time' style='white-space:nowrap;color:#fbbf24;'>ETA: {eta_hour} {eta_ampm}</span>
+         <span class='mi'>{flight.Distance:.2f}mi</span>
+     </div>
+  </div>
+</div>
+"""
 
+st.markdown(card_html, unsafe_allow_html=True)
 
