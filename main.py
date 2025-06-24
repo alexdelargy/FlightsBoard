@@ -64,7 +64,7 @@ STYLES = """
 @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
 body, .stApp {
     background: #181825 !important;
-    zoom: 2;
+    zoom: 1;
 }
 .matrix-card {
     background:#000;

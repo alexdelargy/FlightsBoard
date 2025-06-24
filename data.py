@@ -12,8 +12,8 @@ import streamlit as st
 EARTH_RADIUS = 6371e3
 
 def getLocation():
-    lat, lon = geocoder.ip('me').latlng
-    return lat, lon
+    # lat, lon = geocoder.ip('me').latlng
+    return [40.738, -73.993]
 
 def getBounds(radius_miles: float) -> Tuple[float, float, float, float]:
     """
