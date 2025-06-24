@@ -1,16 +1,11 @@
-from datetime import datetime
 from itertools import cycle
 import base64
-import imghdr
 
 import pandas as pd
 import pytz
 import requests
-import main as st
-import pydeck as pdk
+import streamlit as st
 from streamlit_autorefresh import st_autorefresh
-from streamlit_folium import st_folium
-import folium
 from data import getFlightsFR24
 
 # ─────────────────────────────────────────────────────────────────────────────

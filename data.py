@@ -8,11 +8,6 @@ from typing import Tuple
 import time
 
 
-with open('keys.json', 'r') as KeysFile:
-    data = json.load(KeysFile)
-
-
-FR24Key = data['FR24Key']
 EARTH_RADIUS = 6371e3
 
 def getLocation():
