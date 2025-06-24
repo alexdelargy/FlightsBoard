@@ -12,7 +12,6 @@ with open('keys.json', 'r') as KeysFile:
     data = json.load(KeysFile)
 
 FR24Key = data['FR24Key']
-DEFAULT_LOCATION = [40.69131095346322, -74.38958047019509]
 EARTH_RADIUS = 6371e3
 
 
@@ -118,8 +117,6 @@ def getFlightsFR24(miles):
 
 df = getFlightsFR24(miles=20)
 
-
-df = df.assign(Alt=df["Alt"].map("{:,} ft".format),
-              Distance=df["Distance"].map("{:.1f} mi".format))
+df.to_csv("SAMPLE2.csv", index=False)
 
 
