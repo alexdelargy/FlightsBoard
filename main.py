@@ -44,6 +44,8 @@ if "df" not in st.session_state:
     st.session_state.cycle = cycle(st.session_state.df.itertuples())
     st.session_state.index = 0
 
+
+
 if st.session_state.index >= len(st.session_state.df):
     st.session_state.df = fetch_flights()
     st.session_state.cycle = cycle(st.session_state.df.itertuples())

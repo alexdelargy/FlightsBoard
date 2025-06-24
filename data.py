@@ -13,7 +13,7 @@ EARTH_RADIUS = 6371e3
 
 def getLocation():
     # lat, lon = geocoder.ip('me').latlng
-    return [40.738, -73.993]
+    return [40.6667988, -73.9502092]
 
 def getBounds(radius_miles: float) -> Tuple[float, float, float, float]:
     """
