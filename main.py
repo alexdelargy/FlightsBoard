@@ -11,6 +11,7 @@ import pydeck as pdk
 from streamlit_autorefresh import st_autorefresh
 from streamlit_folium import st_folium
 import folium
+from data import getFlightsFR24
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG
@@ -34,7 +35,7 @@ st.set_page_config(page_title="Flights Overhead", page_icon="✈️", layout="ce
 @st.cache_data(ttl=60)
 def fetch_flights() -> pd.DataFrame:
     """Return sample data (or swap in an API call)."""
-    df = pd.read_csv(CSV_PATH)
+    df = getFlightsFR24(miles=20)
     df["ETA"] = pd.to_datetime(df["ETA"], errors="coerce")
     return df
 

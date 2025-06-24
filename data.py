@@ -11,9 +11,9 @@ import time
 with open('keys.json', 'r') as KeysFile:
     data = json.load(KeysFile)
 
+
 FR24Key = data['FR24Key']
 EARTH_RADIUS = 6371e3
-
 
 def getLocation():
     lat, lon = geocoder.ip('me').latlng
@@ -114,9 +114,4 @@ def getFlightsFR24(miles):
         print(f"HTTP error occurred: {http_err}")
     except Exception as err:
         print(f"An error occurred: {err}")
-
-df = getFlightsFR24(miles=20)
-
-df.to_csv("SAMPLE2.csv", index=False)
-
 
