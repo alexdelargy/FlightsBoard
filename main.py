@@ -17,7 +17,7 @@ from data import getFlightsFR24
 # CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 EASTERN = pytz.timezone("US/Eastern")
-REFRESH_INTERVAL_MS = 0.1 * 60 * 1000  # 1 minute
+REFRESH_INTERVAL_MS = 1 * 60 * 1000  # 1 minute
 CSV_PATH = "SampleData.csv"  # replace with live API if desired
 ICON_URL = (
     "https://raw.githubusercontent.com/visgl/deck.gl-data/master/website/icon-atlas/airplane.png"
